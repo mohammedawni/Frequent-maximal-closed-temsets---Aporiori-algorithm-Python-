@@ -89,7 +89,7 @@ class Aporior (Item_Sets):
         g = nx.DiGraph()
         g.add_node('Start',style='filled',fillcolor= "red"  )
         for item in network[1:len(self.unique_transaction)+1] :
-            g.add_node(node_data(self.frquent_itemsets , ''.join(item)),style='filled',fillcolor= node_color(self.frquent_itemsets[''.join(item)])  )
+            g.add_node(node_data(self.frquent_itemsets , ''.join(item)),style='filled',fillcolor= node_color(self.frquent_itemsets[''.join(item)]) if ''.join(item) in self.frquent_itemsets else 'white' )
             g.add_edge('Start',node_data(self.frquent_itemsets , ''.join(item)))
         for item in network[len(self.unique_transaction)+1:] :
             item = sorted(item)
@@ -158,7 +158,7 @@ def all_subsets(ss):
 def is_frequent(item_sets , canditate , min_sup ) :
     count = 0
     for transaction in item_sets :
-        if set(''.join(canditate)) <= set(transaction[0] ) :
+        if set(canditate) <= set(transaction[0] ) :
             count += 1
     if count >= min_sup :
         return True,count
@@ -197,7 +197,12 @@ def node_color(node) :
         return '#CCCCFF'
 
 #////////////////////////////////////////////////////////////////////////////////////
-
+'''  NOTE : X and index functions depends on the combinations rule 1/k!(n!/(n-k)!) 
+    Target of it :
+        If we the itemset is 'abc' 3-len item so we want only all 2-len items 
+        We can get the num of k-len items by the above law 
+        Get n-len items by adding k0,k1,...,kn items . 
+ '''
 def x(n,_n  ,num) :
     if n == _n-num+1 :
             return n
@@ -213,7 +218,8 @@ if __name__ == "__main__" :
     obj = Aporior(2,"training_datatset.db")
     obj.Aporior_algorithm()
     obj.max_close()
+    obj.display_data()
     obj.draw_whole_network()
     obj.draw_frequent_itemsets()
-    obj.display_data()
+
  
