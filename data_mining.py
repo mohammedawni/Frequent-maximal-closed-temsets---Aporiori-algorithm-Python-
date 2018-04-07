@@ -151,7 +151,7 @@ def has_infrequent_itemset(canditate , frequent_itemsets) :
     return False
 #////////////////////////////////////////////////////////////////////////////////////
 def get_subsets(Set, m) :
-    return list(itertools.combinations(Set,m))
+    return itertools.combinations(Set,m)
 def all_subsets(ss):
   return itertools.chain(*map(lambda x: itertools.combinations(ss, x), range(0, len(ss)+1)))
 #////////////////////////////////////////////////////////////////////////////////////
