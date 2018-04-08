@@ -35,9 +35,10 @@ class Item_Sets :
 ################################END Of The Class###################################
 ######################################################################################
 class Aporior (Item_Sets):
-    def __init__(self  ,min_sup , db_file_name ):
+    def __init__(self  ,min_sup ,min_conf , db_file_name ):
        super().__init__(db_file_name )
        self.min_sup = min_sup
+       self.min_conf = min_conf
        self.frquent_itemsets = {}
        self.canditates = []
 
@@ -55,7 +56,7 @@ class Aporior (Item_Sets):
             for transaction in C :
                 frequent,sup_count = is_frequent(self.transactions,transaction,self.min_sup) 
                 if frequent :                   
-                    self.frquent_itemsets["".join(transaction)] ={"sup_count" : sup_count }                  
+                    self.frquent_itemsets[transaction] ={"sup_count" : sup_count }                  
                     L.append(transaction)
 #////////////////////////////////////////////////////////////////////////////////////
     def max_close(self) :
@@ -131,7 +132,20 @@ class Aporior (Item_Sets):
         A = to_agraph(g)  
         A.layout('dot')
         A.draw('frequent.png')              
-        
+#///////////////////////////////////////////////////////////////////////////////////
+    def association_rules(self) :
+        ass_rules_data = defaultdict(list)
+        for item in self.frquent_itemsets.keys() :
+            if len(item) > 1 :
+                item_subsets = all_subsets(item)
+                next(item_subsets)
+                for subset in item_subsets :
+                    if len(subset) == len(item) :
+                        break
+                    l = set(item) - set(subset)
+                    conf =  self.frquent_itemsets[item]['sup_count']/self.frquent_itemsets[''.join(subset)]['sup_count']
+                    ass_rules_data[item].append(conf_data(item,subset ,self.frquent_itemsets[item]['sup_count'] ,conf ,self.min_conf ,conf>=self.min_conf ))
+        return ass_rules_data
 #////////////////////////////////////////////////////////////////////////////////////
     def display_data(self):
         super().display_data()
@@ -139,17 +153,10 @@ class Aporior (Item_Sets):
         items = sorted(self.frquent_itemsets.keys(),key = len )
         for item in items:
             print("SET = {} : SUP = {} >= min_sup({}) || Maximal : {} - Closed :{}.".format(set(item),self.frquent_itemsets[item]["sup_count"],self.min_sup,self.frquent_itemsets[item]['maximal'],self.frquent_itemsets[item]["closed"]))
+        write_ass_rules(self.association_rules())
  #////////////////////////////////////////////////////////////////////////////////////      
  ############################### END OF THE CLASS ####################################
  ######################################################################################
-def has_infrequent_itemset(canditate , frequent_itemsets) :
-    canditate_subsets = get_subsets(canditate , len(canditate)-1 )
-    for subset in canditate_subsets:
-        #print(list(subset) , frequent_itemsets)
-        if list(subset) not in frequent_itemsets :
-            return True
-    return False
-#////////////////////////////////////////////////////////////////////////////////////
 def get_subsets(Set, m) :
     return itertools.combinations(Set,m)
 def all_subsets(ss):
@@ -164,20 +171,28 @@ def is_frequent(item_sets , canditate , min_sup ) :
         return True,count
     return False,count
 #////////////////////////////////////////////////////////////////////////////////////
+def has_infrequent_itemset(canditate , frequent_itemsets) :
+    canditate_subsets = get_subsets(canditate , len(canditate)-1 )
+    for subset in canditate_subsets:
+        if ''.join(subset) not in frequent_itemsets :
+            return True
+    return False
+#////////////////////////////////////////////////////////////////////////////////////
 def apriori_gen(frequent_itemsets) :
     length = len(frequent_itemsets[0])
     if length ==1 :
         for i in range(len(frequent_itemsets)-1) :
             for j in range(i+1,len(frequent_itemsets)) :
-                yield sorted([frequent_itemsets[i],frequent_itemsets[j]])
+                canditate = sorted([frequent_itemsets[i],frequent_itemsets[j]])
+                yield ''.join(canditate)
     else : 
         for i in range(len(frequent_itemsets)-1) :
             for j in range(i+1,len(frequent_itemsets)) :            
                 if frequent_itemsets[i][:length-1] == frequent_itemsets[j][:length-1] :
-                    canditate = list(set(frequent_itemsets[i]).union(set(frequent_itemsets[j])))
+                    canditate = set(frequent_itemsets[i]).union(set(frequent_itemsets[j]))
                     canditate = sorted(canditate)
-                    if not has_infrequent_itemset(canditate , frequent_itemsets) :
-                        yield canditate                   
+                    if not has_infrequent_itemset(''.join(canditate) , frequent_itemsets) :
+                        yield ''.join(canditate)                   
 #////////////////////////////////////////////////////////////////////////////////////
 def node_data(frequent_itemsets ,node) :
     if node in frequent_itemsets :
@@ -188,6 +203,7 @@ def node_data(frequent_itemsets ,node) :
                                       )
     else :
         return node
+
 def node_color(node) :
     if not node['maximal'] and  node['closed'] :
         return 'orange'
@@ -196,6 +212,22 @@ def node_color(node) :
     else :
         return '#CCCCFF'
 
+def write_ass_rules(ass_rules_data,filename = 'association.txt') :
+    with open(filename,'w') as file :
+        for item in ass_rules_data.keys() :
+            file.write('Item : {} \n'.format(set(item)))
+            for rule in ass_rules_data[item] :
+                file.writelines(rule)
+                file.write('\n')
+            file.write('______________________________________________\n')
+
+def conf_data(item , subset ,item_sup , conf , min_conf , case ) :
+    p1 = ''.join(['{} ^ '.format(char) for char in subset[:-1]])
+    p1 += '{}'.format(subset[-1])
+    p2_items = sorted(set(item)-set(subset))
+    p2 = ''.join(['{} ^ '.format(char) for char in p2_items[:-1]])
+    p2 += '{}'.format(p2_items[-1])
+    return '\tR: {} --> {} \t\t\n'.format(p1,p2),'\tConfidence = SC{}/SC{} = {} / {} = {}% {} min_conf({}%) \n'.format(set(item),set(subset),item_sup,item_sup/conf,conf*100,'>=' if case else '<',min_conf*100),'\tR is Selected.\n' if case else '\tR is Rejected.\n'
 #////////////////////////////////////////////////////////////////////////////////////
 '''  NOTE : X and index functions depends on the combinations rule 1/k!(n!/(n-k)!) 
     Target of it :
@@ -213,13 +245,14 @@ def index(n,num) :
         return 1
     else :
         return index(n,num-1) + (x(n,n,num) / factorial(num))
+
 #////////////////////////////////////////////////////////////////////////////////////
 if __name__ == "__main__" :
-    obj = Aporior(2,"training_datatset.db")
+    obj = Aporior(2,0.6,"training_datatset.db")
     obj.Aporior_algorithm()
     obj.max_close()
     obj.display_data()
     obj.draw_whole_network()
     obj.draw_frequent_itemsets()
-
+    
  
